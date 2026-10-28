@@ -112,6 +112,52 @@ let indiceArrastrando = null;
 let rotacionOriginal = true;
 let ignorarClick = false;
 
+const CLAVE_BARDAS = 'watchDome.pruebaCesium.barda';
+
+function guardarBarda() {
+  const datos = {
+    puntos: puntosBarda,
+    altura: entradaAltura.value,
+    grosor: entradaGrosor.value
+  };
+
+  localStorage.setItem(CLAVE_BARDAS, JSON.stringify(datos));
+}
+
+function cargarBardaGuardada() {
+  try {
+    const guardado = localStorage.getItem(CLAVE_BARDAS);
+    if (!guardado) return;
+
+    const datos = JSON.parse(guardado);
+
+    if (!Array.isArray(datos.puntos)) return;
+
+    puntosBarda = datos.puntos.filter(p =>
+      Number.isFinite(p.longitud) &&
+      Number.isFinite(p.latitud) &&
+      Number.isFinite(p.altura)
+    );
+
+    if (datos.altura !== undefined) {
+      entradaAltura.value = datos.altura;
+    }
+
+    if (datos.grosor !== undefined) {
+      entradaGrosor.value = datos.grosor;
+    }
+
+    puntosBarda.forEach((_, indice) => crearMarcador(indice));
+    actualizarBarda();
+
+    estado.textContent = puntosBarda.length
+      ? `Se recuperaron ${puntosBarda.length} puntos guardados.`
+      : 'No hay puntos guardados.';
+  } catch (error) {
+    console.error('No se pudo recuperar la barda guardada:', error);
+  }
+}
+
 // Panel
 const panel = document.createElement('div');
 panel.style.cssText = `
@@ -415,6 +461,7 @@ manejador.setInputAction((evento) => {
   puntosBarda[indiceArrastrando] = nuevo;
   marcadoresBarda[indiceArrastrando].position = posicionDe(nuevo);
   actualizarBarda();
+  guardarBarda();
 
   estado.textContent = `Moviendo vértice ${indiceArrastrando + 1}.`;
 }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
@@ -445,6 +492,7 @@ manejador.setInputAction((evento) => {
   puntosBarda.push(nuevo);
   crearMarcador(puntosBarda.length - 1);
   actualizarBarda();
+  guardarBarda();
 
   estado.textContent = puntosBarda.length < 2
     ? 'Primer punto agregado. Haz clic en otro lugar.'
@@ -467,6 +515,7 @@ document.getElementById('deshacerPunto').addEventListener('click', () => {
   const marcador = marcadoresBarda.pop();
   if (marcador) viewer.entities.remove(marcador);
   actualizarBarda();
+  guardarBarda();
 
   estado.textContent = `Puntos restantes: ${puntosBarda.length}.`;
 });
@@ -481,6 +530,8 @@ document.getElementById('terminarBarda').addEventListener('click', () => {
 document.getElementById('limpiarBarda').addEventListener('click', () => {
   modoDibujo = false;
   puntosBarda = [];
+
+  localStorage.removeItem(CLAVE_BARDAS);
 
   if (bardaDibujada) viewer.entities.remove(bardaDibujada);
   bardaDibujada = null;
@@ -498,8 +549,16 @@ document.getElementById('limpiarBarda').addEventListener('click', () => {
   bardaDibujada = null;
 });
 
-entradaAltura.addEventListener('change', actualizarBarda);
+entradaAltura.addEventListener('change', () => {
+  actualizarBarda();
+  guardarBarda();
+});
 
-entradaGrosor.addEventListener('change', actualizarBarda);
+entradaGrosor.addEventListener('change', () => {
+  actualizarBarda();
+  guardarBarda();
+});
 
 console.log('Herramienta interactiva de bardas lista.');
+
+cargarBardaGuardada();
